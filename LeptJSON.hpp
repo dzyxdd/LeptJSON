@@ -19,7 +19,7 @@ struct LeptJSON {
 	enum class ValueType { NULL_TYPE, FALSE_TYPE, TRUE_TYPE, NUMBER_TYPE, STRING_TYPE, ARRAY_TYPE, OBJECT_TYPE };
 
 	enum class Status {
-		PARSE_OK, PARSE_EXPECT_VALUE, PARSE_INVALID_VALUE, PARSE_ROOT_NOT_SINGULAR, PARSE_NUMBER_TOO_BIG, PARSE_MISS_QUOTATION_MARK, PARSE_INVALID_STRING_ESCAPE, PARSE_INVALID_STRING_CHAR, PARSE_INVALID_UNICODE_HEX
+		PARSE_OK, PARSE_EXPECT_VALUE, PARSE_INVALID_VALUE, PARSE_ROOT_NOT_SINGULAR, PARSE_NUMBER_TOO_BIG, PARSE_MISS_QUOTATION_MARK, PARSE_INVALID_STRING_ESCAPE, PARSE_INVALID_STRING_CHAR, PARSE_INVALID_UNICODE_HEX, PARSE_INVALID_UNICODE_SURROGATE
 	};
 
 private:
@@ -83,7 +83,7 @@ public:
 
 	std::string_view get_string()const {
 		assert(jsonValue.type == ValueType::STRING_TYPE);
-		return std::get<std::string>(jsonValue.value);
+		return std::string_view{ std::get<std::string>(jsonValue.value).data(),std::get<std::string>(jsonValue.value).size()};
 	}
 
 	void set_string(std::string str) {
@@ -195,7 +195,7 @@ private:
 		for (; json.size(); json.remove_prefix(1)) {
 			switch (json.front()) {
 				case '\"':
-					jsonValue = { s,ValueType::STRING_TYPE };
+					jsonValue = { s.data(),ValueType::STRING_TYPE };//! why
 					json.remove_prefix(1);
 					return Status::PARSE_OK;
 				case '\\':
@@ -211,6 +211,32 @@ private:
 						case'n':s += '\n'; break;
 						case'r':s += '\r'; break;
 						case't':s += '\t'; break;
+						case'u':
+							unsigned int u{};
+							if (!parse_hex4(u)) {
+								return Status::PARSE_INVALID_UNICODE_HEX;
+							}
+							if (u >= 0xD800 && u <= 0xDBFF) { /* surrogate pair */
+								json.remove_prefix(5);
+								if (!json.starts_with('\\')) {
+									return Status::PARSE_INVALID_UNICODE_SURROGATE;
+								}
+								json.remove_prefix(1);
+								if (!json.starts_with('u')) {
+									return Status::PARSE_INVALID_UNICODE_SURROGATE;
+								}
+								unsigned int u2{};
+								if (!parse_hex4(u2)) {
+									return Status::PARSE_INVALID_UNICODE_HEX;
+								}
+								if (u2 < 0xDC00 || u2>0xDFFF) {
+									return Status::PARSE_INVALID_UNICODE_SURROGATE;
+								}
+								u = (((u - 0xD800) << 10) | (u2 - 0xDC00)) + 0x10000;
+							}
+							json.remove_prefix(4);
+							encode_utf8(s, u);
+							break;
 					}
 					break;
 				default:
@@ -221,6 +247,40 @@ private:
 			}
 		}
 		return Status::PARSE_MISS_QUOTATION_MARK;
+	}
+
+	bool parse_hex4(unsigned int& u) {
+		if (json.size() < 5)return false;
+		for (int i = 1; i < 5; i++) {
+			u <<= 4;
+			if (json[i] >= '0' && json[i] <= '9') u |= json[i] - '0';
+			else if (json[i] >= 'A' && json[i] <= 'F') u |= json[i] - 'A' + 10;
+			else if (json[i] >= 'a' && json[i] <= 'f') u |= json[i] - 'a' + 10;
+			else return false;
+		}
+		return true;
+	}
+
+	void encode_utf8(std::string& s, const unsigned int& u) {
+		if (u <= 0x7f) {
+			s += u & 0xff;
+		}
+		else if (u <= 0x7ff) {
+			s += 0xC0 | ((u >> 6) & 0xFF);
+			s += 0x80 | (u & 0x3F);
+		}
+		else if (u <= 0xffff) {
+			s += 0xE0 | ((u >> 12) & 0xFF);
+			s += 0x80 | ((u >> 6) & 0x3F);
+			s += 0x80 | (u & 0x3F);
+		}
+		else {
+			assert(u <= 0x10ffff);
+			s += 0xF0 | ((u >> 18) & 0xFF);
+			s += 0x80 | ((u >> 12) & 0x3F);
+			s += 0x80 | ((u >> 6) & 0x3F);
+			s += 0x80 | (u & 0x3F);
+		}
 	}
 };
 

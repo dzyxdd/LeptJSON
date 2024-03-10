@@ -107,6 +107,12 @@ void test_parse_string() {
 	details::test_string("Hello", "\"Hello\"");
 	details::test_string("Hello\nWorld", "\"Hello\\nWorld\"");
 	details::test_string("\" \\ / \b \f \n \r \t", "\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\"");
+	details::test_string("Hello\0World", "\"Hello\\u0000World\"");
+	details::test_string("\x24", "\"\\u0024\"");         /* Dollar sign U+0024 */
+	details::test_string("\xC2\xA2", "\"\\u00A2\"");     /* Cents sign U+00A2 */
+	details::test_string("\xE2\x82\xAC", "\"\\u20AC\""); /* Euro sign U+20AC */
+	details::test_string("\xF0\x9D\x84\x9E", "\"\\uD834\\uDD1E\"");  /* G clef sign U+1D11E */
+	details::test_string("\xF0\x9D\x84\x9E", "\"\\ud834\\udd1e\"");  /* G clef sign U+1D11E */
 }
 
 static void test_parse_expect_value() {
@@ -160,6 +166,47 @@ static void test_parse_invalid_string_char() {
 	details::test_error(Status::PARSE_INVALID_STRING_CHAR, "\"\x1F\"");
 }
 
+static void test_parse_invalid_unicode_hex() {
+	details::test_error(Status::PARSE_INVALID_UNICODE_HEX, "\"\\u\"");
+	details::test_error(Status::PARSE_INVALID_UNICODE_HEX, "\"\\u0\"");
+	details::test_error(Status::PARSE_INVALID_UNICODE_HEX, "\"\\u01\"");
+	details::test_error(Status::PARSE_INVALID_UNICODE_HEX, "\"\\u012\"");
+	details::test_error(Status::PARSE_INVALID_UNICODE_HEX, "\"\\u/000\"");
+	details::test_error(Status::PARSE_INVALID_UNICODE_HEX, "\"\\uG000\"");
+	details::test_error(Status::PARSE_INVALID_UNICODE_HEX, "\"\\u0/00\"");
+	details::test_error(Status::PARSE_INVALID_UNICODE_HEX, "\"\\u0G00\"");
+	details::test_error(Status::PARSE_INVALID_UNICODE_HEX, "\"\\u00/0\"");
+	details::test_error(Status::PARSE_INVALID_UNICODE_HEX, "\"\\u00G0\"");
+	details::test_error(Status::PARSE_INVALID_UNICODE_HEX, "\"\\u000/\"");
+	details::test_error(Status::PARSE_INVALID_UNICODE_HEX, "\"\\u000G\"");
+	details::test_error(Status::PARSE_INVALID_UNICODE_HEX, "\"\\u 123\"");
+}
+
+static void test_parse_invalid_unicode_surrogate() {
+	details::test_error(Status::PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\"");
+	details::test_error(Status::PARSE_INVALID_UNICODE_SURROGATE, "\"\\uDBFF\"");
+	details::test_error(Status::PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\\\\"");
+	details::test_error(Status::PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\uDBFF\"");
+	details::test_error(Status::PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\uE000\"");
+}
+
+static void test_parse() {
+	test_parse_null();
+	test_parse_true();
+	test_parse_false();
+	test_parse_number();
+	test_parse_string();
+	test_parse_expect_value();
+	test_parse_invalid_value();
+	test_parse_root_not_singular();
+	test_parse_number_too_big();
+	test_parse_missing_quotation_mark();
+	test_parse_invalid_string_escape();
+	test_parse_invalid_string_char();
+	test_parse_invalid_unicode_hex();
+	test_parse_invalid_unicode_surrogate();
+}
+
 static void test_access_null() {
 	LeptJSON v;
 	v.set_string("a");
@@ -191,20 +238,7 @@ static void test_access_string() {
 	EXPECT_EQ_STRING("Hello", v.get_string());
 }
 
-static void test_parse() {
-	test_parse_null();
-	test_parse_true();
-	test_parse_false();
-	test_parse_number();
-	test_parse_string();
-	test_parse_expect_value();
-	test_parse_invalid_value();
-	test_parse_root_not_singular();
-	test_parse_number_too_big();
-	test_parse_missing_quotation_mark();
-	test_parse_invalid_string_escape();
-	test_parse_invalid_string_char();
-
+static void test_access() {
 	test_access_null();
 	test_access_boolean();
 	test_access_number();
@@ -216,6 +250,7 @@ int main() {
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 	test_parse();
+	test_access();
 	printf("%d/%d (%3.2f%%) passed\n", test_pass, test_count, test_pass * 100.0 / test_count);
 	return main_ret;
 }
