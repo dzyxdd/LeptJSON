@@ -9,12 +9,13 @@ static int main_ret = 0;
 static int test_count = 0;
 static int test_pass = 0;
 
-using status = LeptJSON::status;
-using json_type=LeptJSON::json_type;
+using Status = LeptJSON::Status;
+using ValueType = LeptJSON::ValueType;
 
 #define EXPECT_EQ_BASE(equality, expect, actual, format) \
     do {\
         test_count++;\
+		printf("%d\n: ",test_count);\
         if (equality)\
             test_pass++;\
         else {\
@@ -28,39 +29,35 @@ using json_type=LeptJSON::json_type;
 
 namespace details {
 void test_number(double expect_number, const char* json) {
-	LeptJSON v;
-	EXPECT_EQ_INT(status::PARSE_OK, v.parse(json));
-	EXPECT_EQ_INT(json_type::NUMBER_TYPE, v.get_type());
+	LeptJSON v(json);
+	EXPECT_EQ_INT(Status::PARSE_OK, v.parse());
+	EXPECT_EQ_INT(ValueType::NUMBER_TYPE, v.get_type());
 	EXPECT_EQ_DOUBLE(expect_number, v.get_number());
 }
 
-void test_error(status error, const char* json) {
-	LeptJSON v;
-	v.type = json_type::FALSE_TYPE;
-	EXPECT_EQ_INT(error, v.parse(json));
-	EXPECT_EQ_INT(json_type::NULL_TYPE, v.get_type());
+void test_error(Status error, const char* json) {
+	LeptJSON v(json, ValueType::FALSE_TYPE);
+	EXPECT_EQ_INT(error, v.parse());
+	EXPECT_EQ_INT(ValueType::NULL_TYPE, v.get_type());
 }
 }
 
 static void test_parse_null() {
-	LeptJSON v;
-	v.type = json_type::TRUE_TYPE;
-	EXPECT_EQ_INT(status::PARSE_OK, v.parse("null"));
-	EXPECT_EQ_INT(json_type::NULL_TYPE, v.get_type());
+	LeptJSON v("null", ValueType::TRUE_TYPE);
+	EXPECT_EQ_INT(Status::PARSE_OK, v.parse());
+	EXPECT_EQ_INT(ValueType::NULL_TYPE, v.get_type());
 }
 
 static void test_parse_true() {
-	LeptJSON v;
-	v.type = json_type::FALSE_TYPE;
-	EXPECT_EQ_INT(status::PARSE_OK, v.parse("true"));
-	EXPECT_EQ_INT(json_type::TRUE_TYPE, v.get_type());
+	LeptJSON v("true", ValueType::FALSE_TYPE);
+	EXPECT_EQ_INT(Status::PARSE_OK, v.parse());
+	EXPECT_EQ_INT(ValueType::TRUE_TYPE, v.get_type());
 }
 
 static void test_parse_false() {
-	LeptJSON v;
-	v.type = json_type::TRUE_TYPE;
-	EXPECT_EQ_INT(status::PARSE_OK, v.parse("false"));
-	EXPECT_EQ_INT(json_type::FALSE_TYPE, v.get_type());
+	LeptJSON v("false", ValueType::TRUE_TYPE);
+	EXPECT_EQ_INT(Status::PARSE_OK, v.parse());
+	EXPECT_EQ_INT(ValueType::FALSE_TYPE, v.get_type());
 }
 
 static void test_parse_number() {
@@ -86,37 +83,37 @@ static void test_parse_number() {
 }
 
 static void test_parse_expect_value() {
-	details::test_error(status::PARSE_EXPECT_VALUE, "");
-	details::test_error(status::PARSE_EXPECT_VALUE, " ");
+	details::test_error(Status::PARSE_EXPECT_VALUE, "");
+	details::test_error(Status::PARSE_EXPECT_VALUE, " ");
 }
 
 static void test_parse_invalid_value() {
-	details::test_error(status::PARSE_INVALID_VALUE, "nul");
-	details::test_error(status::PARSE_INVALID_VALUE, "?");
+	details::test_error(Status::PARSE_INVALID_VALUE, "nul");
+	details::test_error(Status::PARSE_INVALID_VALUE, "?");
 
 	/* invalid number */
-	details::test_error(status::PARSE_INVALID_VALUE, "+0");
-	details::test_error(status::PARSE_INVALID_VALUE, "+1");
-	details::test_error(status::PARSE_INVALID_VALUE, ".123");
-	details::test_error(status::PARSE_INVALID_VALUE, "1.");
-	details::test_error(status::PARSE_INVALID_VALUE, "INF");
-	details::test_error(status::PARSE_INVALID_VALUE, "inf");
-	details::test_error(status::PARSE_INVALID_VALUE, "NAN");
-	details::test_error(status::PARSE_INVALID_VALUE, "nan");
+	details::test_error(Status::PARSE_INVALID_VALUE, "+0");
+	details::test_error(Status::PARSE_INVALID_VALUE, "+1");
+	details::test_error(Status::PARSE_INVALID_VALUE, ".123");
+	details::test_error(Status::PARSE_INVALID_VALUE, "1.");
+	details::test_error(Status::PARSE_INVALID_VALUE, "INF");
+	details::test_error(Status::PARSE_INVALID_VALUE, "inf");
+	details::test_error(Status::PARSE_INVALID_VALUE, "NAN");
+	details::test_error(Status::PARSE_INVALID_VALUE, "nan");
 }
 
 static void test_parse_root_not_singular() {
-	details::test_error(status::PARSE_ROOT_NOT_SINGULAR, "null x");
+	details::test_error(Status::PARSE_ROOT_NOT_SINGULAR, "null x");
 
 	/* invalid number */
-	details::test_error(status::PARSE_ROOT_NOT_SINGULAR, "0123");
-	details::test_error(status::PARSE_ROOT_NOT_SINGULAR, "0x0");
-	details::test_error(status::PARSE_ROOT_NOT_SINGULAR, "0x123");
+	details::test_error(Status::PARSE_ROOT_NOT_SINGULAR, "0123");
+	details::test_error(Status::PARSE_ROOT_NOT_SINGULAR, "0x0");
+	details::test_error(Status::PARSE_ROOT_NOT_SINGULAR, "0x123");
 }
 
 static void test_parse_number_too_big() {
-	details::test_error(status::PARSE_NUMBER_TOO_BIG, "1e309");
-	details::test_error(status::PARSE_NUMBER_TOO_BIG, "-1e309");
+	details::test_error(Status::PARSE_NUMBER_TOO_BIG, "1e309");
+	details::test_error(Status::PARSE_NUMBER_TOO_BIG, "-1e309");
 }
 
 static void test_parse() {
