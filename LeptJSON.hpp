@@ -163,6 +163,9 @@ private:
 		}
 		json.remove_prefix(literal.size());
 		this->jsonValue.type = type;
+		if (type == ValueType::TRUE_TYPE)jsonValue.value = true;
+		else if (type == ValueType::FALSE_TYPE)jsonValue.value = false;
+		else jsonValue.value = nullptr;
 		return Status::PARSE_OK;
 	}
 
@@ -494,8 +497,32 @@ private:
 		assert(jv.type == ValueType::OBJECT_TYPE);
 		return std::get<json_object_type>(jv.value);
 	}
+
+	friend bool operator==(const JsonValue& lhs, const JsonValue& rhs) {
+		return lhs.type == rhs.type && lhs.value == rhs.value;
+	}
 };
 
-
+bool operator==(const LeptJSON& lhs, const LeptJSON& rhs) {
+	if (lhs.get_type() != rhs.get_type())return false;
+	switch (lhs.get_type()) {
+		case LeptJSON::ValueType::NULL_TYPE:
+			return true;
+		case LeptJSON::ValueType::FALSE_TYPE:
+			return true;
+		case LeptJSON::ValueType::TRUE_TYPE:
+			return true;
+		case LeptJSON::ValueType::NUMBER_TYPE:
+			return lhs.get_number() == rhs.get_number();
+		case LeptJSON::ValueType::STRING_TYPE:
+			return lhs.get_string() == rhs.get_string();
+		case LeptJSON::ValueType::ARRAY_TYPE:
+			return lhs.get_array() == rhs.get_array();
+		case LeptJSON::ValueType::OBJECT_TYPE:
+			return lhs.get_object() == rhs.get_object();
+		default:assert(0 && "invalid type");
+	}
+	return false;
+}
 
 #endif/* _LEPTJSON_H_ */

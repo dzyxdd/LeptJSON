@@ -62,6 +62,14 @@ void test_round_trip(const char* json) {
 	EXPECT_EQ_INT(Status::PARSE_OK, v3.parse());
 	EXPECT_EQ_STRING(json2, json3);
 }
+
+void test_equal(const char* lhs, const char* rhs, bool result) {
+	LeptJSON v1(lhs);
+	EXPECT_EQ_INT(Status::PARSE_OK, v1.parse());
+	LeptJSON v2(rhs);
+	EXPECT_EQ_INT(Status::PARSE_OK, v2.parse());
+	EXPECT_EQ_INT(result, v1 == v2);
+}
 }
 
 static void test_parse_null() {
@@ -426,6 +434,32 @@ static void test_stringify() {
 	test_stringify_object();
 }
 
+static void test_equal() {
+	details::test_equal("true", "true", true);
+	details::test_equal("true", "false", false);
+	details::test_equal("false", "false", true);
+	details::test_equal("null", "null", true);
+	details::test_equal("null", "0", false);
+	details::test_equal("123", "123", true);
+	details::test_equal("123", "456", false);
+	details::test_equal("\"abc\"", "\"abc\"", true);
+	details::test_equal("\"abc\"", "\"abcd\"", false);
+	details::test_equal("[]", "[]", true);
+	details::test_equal("[]", "null", false);
+	details::test_equal("[1,2,3]", "[1,2,3]", true);
+	details::test_equal("[1,2,3]", "[1,2,3,4]", false);
+	details::test_equal("[[]]", "[[]]", true);
+	details::test_equal("{}", "{}", true);
+	details::test_equal("{}", "null", false);
+	details::test_equal("{}", "[]", false);
+	details::test_equal("{\"a\":1,\"b\":2}", "{\"a\":1,\"b\":2}", true);
+	details::test_equal("{\"a\":1,\"b\":2}", "{\"b\":2,\"a\":1}", true);
+	details::test_equal("{\"a\":1,\"b\":2}", "{\"a\":1,\"b\":3}", false);
+	details::test_equal("{\"a\":1,\"b\":2}", "{\"a\":1,\"b\":2,\"c\":3}", false);
+	details::test_equal("{\"a\":{\"b\":{\"c\":{}}}}", "{\"a\":{\"b\":{\"c\":{}}}}", true);
+	details::test_equal("{\"a\":{\"b\":{\"c\":{}}}}", "{\"a\":{\"b\":{\"c\":[]}}}", false);
+}
+
 int main() {
 #ifdef _WINDOWS
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -433,6 +467,7 @@ int main() {
 	test_parse();
 	test_access();
 	test_stringify();
+	test_equal();
 	printf("%d/%d (%3.2f%%) passed\n", test_pass, test_count, test_pass * 100.0 / test_count);
 	return main_ret;
 }
