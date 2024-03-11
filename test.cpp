@@ -68,7 +68,7 @@ void test_equal(const char* lhs, const char* rhs, bool result) {
 	EXPECT_EQ_INT(Status::PARSE_OK, v1.parse());
 	LeptJSON v2(rhs);
 	EXPECT_EQ_INT(Status::PARSE_OK, v2.parse());
-	EXPECT_EQ_INT(result, v1 == v2);
+	EXPECT_EQ_INT(result, is_equal(v1, v2));
 }
 }
 
@@ -460,6 +460,36 @@ static void test_equal() {
 	details::test_equal("{\"a\":{\"b\":{\"c\":{}}}}", "{\"a\":{\"b\":{\"c\":[]}}}", false);
 }
 
+void test_copy() {
+	LeptJSON v1("{\"t\":true,\"f\":false,\"n\":null,\"d\":1.5,\"a\":[1,2,3]}");
+	v1.parse();
+	LeptJSON v2(v1);
+	EXPECT_TRUE(is_equal(v2, v1));
+	LeptJSON v3;
+	copy(v3, v1);
+	EXPECT_TRUE(is_equal(v3, v1));
+}
+
+void test_move() {
+	LeptJSON v1("{\"t\":true,\"f\":false,\"n\":null,\"d\":1.5,\"a\":[1,2,3]}");
+	v1.parse();
+	LeptJSON v2(v1);
+	LeptJSON v3;
+	v3 = std::move(v2);
+	EXPECT_TRUE(is_equal(v3, v1));
+	EXPECT_EQ_INT(ValueType::NULL_TYPE, v2.get_type());
+}
+
+void test_swap() {
+	LeptJSON v1("Hello"), v2("World");
+	swap(v1, v2);
+	EXPECT_EQ_STRING("Hello", v2.get_string());
+	EXPECT_EQ_STRING("World", v1.get_string());
+	v1.swap(v2);
+	EXPECT_EQ_STRING("Hello", v1.get_string());
+	EXPECT_EQ_STRING("World", v2.get_string());
+}
+
 int main() {
 #ifdef _WINDOWS
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -468,6 +498,8 @@ int main() {
 	test_access();
 	test_stringify();
 	test_equal();
+	test_copy();
+	test_move();
 	printf("%d/%d (%3.2f%%) passed\n", test_pass, test_count, test_pass * 100.0 / test_count);
 	return main_ret;
 }

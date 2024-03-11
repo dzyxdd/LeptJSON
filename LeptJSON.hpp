@@ -27,35 +27,67 @@ struct LeptJSON {
 	};
 
 private:
+
 	struct JsonValue;
+
 	using json_array_type = std::vector<JsonValue>;
 	using json_object_type = std::map<std::string, JsonValue>;
 	using jsonValueType = std::variant<std::nullptr_t, double, std::string, bool, json_array_type, json_object_type>;
+
 	struct JsonValue {
 		jsonValueType value;
 		ValueType type;
+
+		JsonValue(const jsonValueType& v, ValueType t) :value(v), type(t) {}
+		JsonValue() = default;
+		JsonValue(const JsonValue& rhs) :value(rhs.value), type(rhs.type) {}
+		JsonValue(JsonValue&& rhs) noexcept :value(std::move(rhs.value)), type(rhs.type) {
+			rhs.value = nullptr;
+			rhs.type = ValueType::NULL_TYPE;
+		}
+		JsonValue& operator=(const JsonValue& rhs) {
+			if (this != &rhs) {
+				value = rhs.value;
+				type = rhs.type;
+			}
+			return *this;
+		}
+
+		JsonValue& operator=(JsonValue&& rhs) noexcept {
+			if (this != &rhs) {
+				value = std::move(rhs.value);
+				type = rhs.type;
+				rhs.value = nullptr;
+				rhs.type = ValueType::NULL_TYPE;
+			}
+			return *this;
+		}
 	}jsonValue;
-
-	struct Visitor {
-		jsonValueType operator()(double arg) const {
-			return arg;
-		}
-
-		jsonValueType operator()(std::string arg) const {
-			return arg;
-		}
-
-		template<typename T>
-		jsonValueType operator()(T) const {
-			throw std::runtime_error("Wrong Variant Type");
-		}
-	};
-
 	std::string_view json;
 
 public:
 	explicit LeptJSON(std::string_view js = "", ValueType vt = ValueType::NULL_TYPE)
 		:jsonValue({}, vt), json(js) {}
+
+	LeptJSON(const LeptJSON& rhs) :jsonValue(rhs.jsonValue), json(rhs.json) {}
+
+	LeptJSON(LeptJSON&& rhs) noexcept :jsonValue(std::move(rhs.jsonValue)), json(std::move(rhs.json)) {}
+
+	LeptJSON& operator=(const LeptJSON& rhs) {
+		if (this != &rhs) {
+			jsonValue = rhs.jsonValue;
+			json = rhs.json;
+		}
+		return *this;
+	}
+
+	LeptJSON& operator=(LeptJSON&& rhs) noexcept {
+		if (this != &rhs) {
+			jsonValue = std::move(rhs.jsonValue);
+			json = std::move(rhs.json);
+		}
+		return *this;
+	}
 
 	ValueType get_type()const {
 		return jsonValue.type;
@@ -124,6 +156,11 @@ public:
 		std::string s;
 		stringify_value(s, jsonValue);
 		return std::move(s);
+	}
+
+	void swap(LeptJSON& rhs) {
+		std::swap(jsonValue, rhs.jsonValue);
+		std::swap(json, rhs.json);
 	}
 
 private:
@@ -525,4 +562,19 @@ bool operator==(const LeptJSON& lhs, const LeptJSON& rhs) {
 	return false;
 }
 
+bool is_equal(const LeptJSON& lhs, const LeptJSON& rhs) {
+	return lhs == rhs;
+}
+
+void copy(LeptJSON& lhs, const LeptJSON& rhs) {
+	lhs = rhs;
+}
+
+void move(LeptJSON& lhs, LeptJSON&& rhs) {
+	lhs = std::move(rhs);
+}
+
+void swap(LeptJSON& lhs, LeptJSON& rhs) {
+	lhs.swap(rhs);
+}
 #endif/* _LEPTJSON_H_ */
