@@ -1,8 +1,10 @@
 ﻿#pragma once
-#ifndef _LEPTJSON_H_
-#define _LEPTJSON_H_
+#ifndef LEPTJSON_H_
+#define LEPTJSON_H_
+
 #include <cassert>
 #include <cctype>
+#include <utility>
 #include <variant>
 #include <cmath>
 #include <memory>
@@ -14,10 +16,25 @@
 
 struct LeptJSON {
 
-	enum class ValueType { NULL_TYPE, FALSE_TYPE, TRUE_TYPE, NUMBER_TYPE, STRING_TYPE, ARRAY_TYPE, OBJECT_TYPE };
+	enum class ValueType {
+		NULL_TYPE, FALSE_TYPE, TRUE_TYPE, NUMBER_TYPE, STRING_TYPE, ARRAY_TYPE, OBJECT_TYPE
+	};
 
 	enum class Status {
-		PARSE_OK, PARSE_EXPECT_VALUE, PARSE_INVALID_VALUE, PARSE_ROOT_NOT_SINGULAR, PARSE_NUMBER_TOO_BIG, PARSE_MISS_QUOTATION_MARK, PARSE_INVALID_STRING_ESCAPE, PARSE_INVALID_STRING_CHAR, PARSE_INVALID_UNICODE_HEX, PARSE_INVALID_UNICODE_SURROGATE, PARSE_MISS_COMMA_OR_SQUARE_BRACKET, PARSE_MISS_KEY, PARSE_MISS_COLON, PARSE_MISS_COMMA_OR_CURLY_BRACKET
+		PARSE_OK,
+		PARSE_EXPECT_VALUE,
+		PARSE_INVALID_VALUE,
+		PARSE_ROOT_NOT_SINGULAR,
+		PARSE_NUMBER_TOO_BIG,
+		PARSE_MISS_QUOTATION_MARK,
+		PARSE_INVALID_STRING_ESCAPE,
+		PARSE_INVALID_STRING_CHAR,
+		PARSE_INVALID_UNICODE_HEX,
+		PARSE_INVALID_UNICODE_SURROGATE,
+		PARSE_MISS_COMMA_OR_SQUARE_BRACKET,
+		PARSE_MISS_KEY,
+		PARSE_MISS_COLON,
+		PARSE_MISS_COMMA_OR_CURLY_BRACKET
 	};
 
 private:
@@ -32,13 +49,17 @@ private:
 		jsonValueType value;
 		ValueType type;
 
-		JsonValue(const jsonValueType& v, ValueType t) :value(v), type(t) {}
+		JsonValue(jsonValueType v, ValueType t) : value(std::move(v)), type(t) {}
+
 		JsonValue() = default;
-		JsonValue(const JsonValue& rhs) :value(rhs.value), type(rhs.type) {}
-		JsonValue(JsonValue&& rhs) noexcept :value(std::move(rhs.value)), type(rhs.type) {
+
+		JsonValue(const JsonValue& rhs) = default;
+
+		JsonValue(JsonValue&& rhs) noexcept : value(std::move(rhs.value)), type(rhs.type) {
 			rhs.value = nullptr;
 			rhs.type = ValueType::NULL_TYPE;
 		}
+
 		JsonValue& operator=(const JsonValue& rhs) {
 			if (this != &rhs) {
 				value = rhs.value;
@@ -56,16 +77,17 @@ private:
 			}
 			return *this;
 		}
-	}jsonValue;
+	} jsonValue;
+
 	std::string_view json;
 
 public:
-	explicit LeptJSON(std::string_view js = "", ValueType vt = ValueType::NULL_TYPE)
-		:jsonValue({}, vt), json(js) {}
+	LeptJSON(std::string_view js = "", ValueType vt = ValueType::NULL_TYPE)
+		: jsonValue({}, vt), json(js) {}
 
-	LeptJSON(const LeptJSON& rhs) :jsonValue(rhs.jsonValue), json(rhs.json) {}
+	LeptJSON(const LeptJSON& rhs) = default;
 
-	LeptJSON(LeptJSON&& rhs) noexcept :jsonValue(std::move(rhs.jsonValue)), json(std::move(rhs.json)) {}
+	LeptJSON(LeptJSON&& rhs) noexcept : jsonValue(std::move(rhs.jsonValue)), json(rhs.json) {}
 
 	LeptJSON& operator=(const LeptJSON& rhs) {
 		if (this != &rhs) {
@@ -78,16 +100,16 @@ public:
 	LeptJSON& operator=(LeptJSON&& rhs) noexcept {
 		if (this != &rhs) {
 			jsonValue = std::move(rhs.jsonValue);
-			json = std::move(rhs.json);
+			json = rhs.json;
 		}
 		return *this;
 	}
 
-	ValueType get_type()const {
+	[[nodiscard]] ValueType get_type() const {
 		return jsonValue.type;
 	}
 
-	JsonValue get_value()const {
+	[[nodiscard]] JsonValue get_value() const {
 		return jsonValue;
 	}
 
@@ -96,37 +118,38 @@ public:
 	}
 
 	void set_nullptr() {
-		jsonValue = { nullptr,ValueType::NULL_TYPE };
+		jsonValue = { nullptr, ValueType::NULL_TYPE };
 	}
 
-	bool get_boolean() const {
+	[[nodiscard]] bool get_boolean() const {
 		assert(jsonValue.type == ValueType::TRUE_TYPE || jsonValue.type == ValueType::FALSE_TYPE);
 		return std::get<bool>(jsonValue.value);
 	}
 
 	void set_boolean(bool b) {
-		jsonValue = { b,b ? ValueType::TRUE_TYPE : ValueType::FALSE_TYPE };
+		jsonValue = { b, b ? ValueType::TRUE_TYPE : ValueType::FALSE_TYPE };
 	}
 
-	double get_number() const {
+	[[nodiscard]] double get_number() const {
 		assert(jsonValue.type == ValueType::NUMBER_TYPE);
 		return std::get<double>(jsonValue.value);
 	}
 
 	void set_number(double number) {
-		jsonValue = { number,ValueType::NUMBER_TYPE };
+		jsonValue = { number, ValueType::NUMBER_TYPE };
 	}
 
-	std::string_view get_string()const {
+	[[nodiscard]] std::string_view get_string() const {
 		assert(jsonValue.type == ValueType::STRING_TYPE);
-		return std::string_view{ std::get<std::string>(jsonValue.value).data(),std::get<std::string>(jsonValue.value).size() };
+		return std::string_view{ std::get<std::string>(jsonValue.value).data(),
+								std::get<std::string>(jsonValue.value).size() };
 	}
 
 	void set_string(const char* str) {
-		jsonValue = { std::string{str},ValueType::STRING_TYPE };
+		jsonValue = { std::string{str}, ValueType::STRING_TYPE };
 	}
 
-	const json_array_type& get_array()const {
+	[[nodiscard]] const json_array_type& get_array() const {
 		assert(jsonValue.type == ValueType::ARRAY_TYPE);
 		return std::get<json_array_type>(jsonValue.value);
 	}
@@ -137,10 +160,10 @@ public:
 	}
 
 	void set_array(const json_array_type& arr) {
-		jsonValue = { arr,ValueType::ARRAY_TYPE };
+		jsonValue = { arr, ValueType::ARRAY_TYPE };
 	}
 
-	const json_object_type& get_object()const {
+	[[nodiscard]] const json_object_type& get_object() const {
 		assert(jsonValue.type == ValueType::OBJECT_TYPE);
 		return std::get<json_object_type>(jsonValue.value);
 	}
@@ -150,8 +173,8 @@ public:
 		return std::get<json_object_type>(jsonValue.value);
 	}
 
-	void set_object(const json_object_type&obj) {
-		jsonValue = { obj,ValueType::OBJECT_TYPE };
+	void set_object(const json_object_type& obj) {
+		jsonValue = { obj, ValueType::OBJECT_TYPE };
 	}
 
 	Status parse() {
@@ -160,7 +183,7 @@ public:
 		auto ret = parse_value();
 		if (ret == Status::PARSE_OK) {
 			parse_whitespace();
-			if (json.size() && !json.starts_with('\0')) {
+			if (!json.empty() && !json.starts_with('\0')) {
 				jsonValue.type = ValueType::NULL_TYPE;
 				ret = Status::PARSE_ROOT_NOT_SINGULAR;
 			}
@@ -184,14 +207,22 @@ private:
 	Status parse_value() {
 		if (json.empty())return Status::PARSE_EXPECT_VALUE;
 		switch (json[0]) {
-			case 't':return parse_literal("true", ValueType::TRUE_TYPE);
-			case 'f':return parse_literal("false", ValueType::FALSE_TYPE);
-			case 'n':return parse_literal("null", ValueType::NULL_TYPE);
-			case '\0':return Status::PARSE_EXPECT_VALUE;
-			case '"':return parse_string();
-			case '[':return parse_array();
-			case '{':return parse_object();
-			default:return parse_number();
+			case 't':
+				return parse_literal("true", ValueType::TRUE_TYPE);
+			case 'f':
+				return parse_literal("false", ValueType::FALSE_TYPE);
+			case 'n':
+				return parse_literal("null", ValueType::NULL_TYPE);
+			case '\0':
+				return Status::PARSE_EXPECT_VALUE;
+			case '"':
+				return parse_string();
+			case '[':
+				return parse_array();
+			case '{':
+				return parse_object();
+			default:
+				return parse_number();
 		}
 	}
 
@@ -241,7 +272,7 @@ private:
 				jsonValue.type = ValueType::NULL_TYPE;
 				return Status::PARSE_INVALID_VALUE;
 			}
-			for (judge.remove_prefix(1); judge.size() && isdigit(judge[0]); judge.remove_prefix(1));
+			for (judge.remove_prefix(1); !judge.empty() && isdigit(judge[0]); judge.remove_prefix(1));
 		}
 		if (judge.starts_with('.')) {
 			judge.remove_prefix(1);
@@ -249,7 +280,7 @@ private:
 				jsonValue.type = ValueType::NULL_TYPE;
 				return Status::PARSE_INVALID_VALUE;
 			}
-			for (judge.remove_prefix(1); judge.size() && isdigit(judge[0]); judge.remove_prefix(1));
+			for (judge.remove_prefix(1); !judge.empty() && isdigit(judge[0]); judge.remove_prefix(1));
 		}
 		if (judge.starts_with('e') || judge.starts_with('E')) {
 			judge.remove_prefix(1);
@@ -260,12 +291,13 @@ private:
 				jsonValue.type = ValueType::NULL_TYPE;
 				return Status::PARSE_INVALID_VALUE;
 			}
-			for (judge.remove_prefix(1); judge.size() && isdigit(judge[0]); judge.remove_prefix(1));
+			for (judge.remove_prefix(1); !judge.empty() && isdigit(judge[0]); judge.remove_prefix(1));
 		}
 
 		errno = 0;
 		jsonValue.value = strtod(json.data(), nullptr);
-		if (errno == ERANGE && (std::get<double>(jsonValue.value) == HUGE_VAL || std::get<double>(jsonValue.value) == -HUGE_VAL)) {
+		if (errno == ERANGE &&
+			(std::get<double>(jsonValue.value) == HUGE_VAL || std::get<double>(jsonValue.value) == -HUGE_VAL)) {
 			return Status::PARSE_NUMBER_TOO_BIG;
 		}
 		json = judge;
@@ -277,27 +309,44 @@ private:
 		std::string s;
 		if (json.starts_with('\"'))
 			json.remove_prefix(1);
-		for (; json.size(); json.remove_prefix(1)) {
+		for (; !json.empty(); json.remove_prefix(1)) {
 			switch (json.front()) {
 				case '\"':
-				//	jsonValue = { std::string{s.data()},ValueType::STRING_TYPE };
-					jsonValue = { std::move(s),ValueType::STRING_TYPE };//! why
+					//	jsonValue = { std::string{s.data()},ValueType::STRING_TYPE };
+					jsonValue = { std::move(s), ValueType::STRING_TYPE };//! why
 					json.remove_prefix(1);
 					return Status::PARSE_OK;
 				case '\\':
 					json.remove_prefix(1);
 					if (json.empty())return Status::PARSE_INVALID_STRING_ESCAPE;
 					switch (json.front()) {
-						default:return Status::PARSE_INVALID_STRING_ESCAPE;
-						case'\"': s += '\"'; break;
-						case'\\':s += '\\'; break;
-						case'/':s += '/'; break;
-						case'b':s += '\b'; break;
-						case'f':s += '\f'; break;
-						case'n':s += '\n'; break;
-						case'r':s += '\r'; break;
-						case't':s += '\t'; break;
-						case'u':
+						default:
+							return Status::PARSE_INVALID_STRING_ESCAPE;
+						case '\"':
+							s += '\"';
+							break;
+						case '\\':
+							s += '\\';
+							break;
+						case '/':
+							s += '/';
+							break;
+						case 'b':
+							s += '\b';
+							break;
+						case 'f':
+							s += '\f';
+							break;
+						case 'n':
+							s += '\n';
+							break;
+						case 'r':
+							s += '\r';
+							break;
+						case 't':
+							s += '\t';
+							break;
+						case 'u':
 							unsigned int u{};
 							if (!parse_hex4(u)) {
 								return Status::PARSE_INVALID_UNICODE_HEX;
@@ -315,7 +364,7 @@ private:
 								if (!parse_hex4(u2)) {
 									return Status::PARSE_INVALID_UNICODE_HEX;
 								}
-								if (u2 < 0xDC00 || u2>0xDFFF) {
+								if (u2 < 0xDC00 || u2 > 0xDFFF) {
 									return Status::PARSE_INVALID_UNICODE_SURROGATE;
 								}
 								u = (((u - 0xD800) << 10) | (u2 - 0xDC00)) + 0x10000;
@@ -347,7 +396,7 @@ private:
 		return true;
 	}
 
-	void encode_utf8(std::string& s, const unsigned int& u) {
+	static void encode_utf8(std::string& s, const unsigned int& u) {
 		if (u <= 0x7f) {
 			s += u & 0xff;
 		}
@@ -377,11 +426,11 @@ private:
 		parse_whitespace();
 		if (json.starts_with(']')) {
 			json.remove_prefix(1);
-			jsonValue = { json_array_type{} ,ValueType::ARRAY_TYPE };
+			jsonValue = { json_array_type{}, ValueType::ARRAY_TYPE };
 			return Status::PARSE_OK;
 		}
 		json_array_type v = json_array_type{};
-		while (json.size()) {
+		while (!json.empty()) {
 			auto ret = parse_value();
 			if (ret != Status::PARSE_OK) {
 				return ret;
@@ -394,7 +443,7 @@ private:
 			}
 			else if (json.starts_with(']')) {
 				json.remove_prefix(1);
-				jsonValue = { std::move(v),ValueType::ARRAY_TYPE };
+				jsonValue = { std::move(v), ValueType::ARRAY_TYPE };
 				return Status::PARSE_OK;
 			}
 			else {
@@ -413,7 +462,7 @@ private:
 		parse_whitespace();
 		if (json.starts_with('}')) {
 			json.remove_prefix(1);
-			jsonValue = { json_object_type{},ValueType::OBJECT_TYPE };
+			jsonValue = { json_object_type{}, ValueType::OBJECT_TYPE };
 			return Status::PARSE_OK;
 		}
 		json_object_type v = json_object_type{};
@@ -446,7 +495,7 @@ private:
 			}
 			else if (json.starts_with('}')) {
 				json.remove_prefix(1);
-				jsonValue = { std::move(v),ValueType::OBJECT_TYPE };
+				jsonValue = { std::move(v), ValueType::OBJECT_TYPE };
 				return Status::PARSE_OK;
 			}
 			else {
@@ -459,16 +508,25 @@ private:
 	void stringify_value(std::string& s, const JsonValue& jv) {
 		bool judge;
 		switch (jv.type) {
-			case ValueType::NULL_TYPE:s += "null"; break;
-			case ValueType::FALSE_TYPE:s += "false"; break;
-			case ValueType::TRUE_TYPE:s += "true"; break;
+			case ValueType::NULL_TYPE:
+				s += "null";
+				break;
+			case ValueType::FALSE_TYPE:
+				s += "false";
+				break;
+			case ValueType::TRUE_TYPE:
+				s += "true";
+				break;
 			case ValueType::NUMBER_TYPE:
-				std::array<char, 50> buffer;
-				auto [p, ec] = std::to_chars(buffer.data(), buffer.data() + buffer.size(), std::get<double>(jv.value), std::chars_format::general, 17);
+			{
+				std::array<char, 50> buffer{};
+				auto [p, ec] = std::to_chars(buffer.data(), buffer.data() + buffer.size(), std::get<double>(jv.value),
+					std::chars_format::general, 17);
 				if (ec == std::errc()) {
 					s.append(buffer.data(), p);
 				}
-				break;
+			}
+			break;
 			case ValueType::STRING_TYPE:
 				stringify_string(s, std::get<std::string>(jv.value));
 				break;
@@ -494,22 +552,37 @@ private:
 				}
 				s += '}';
 				break;
-			default:assert(0 && "invalid type");
+			default:
+				assert(0 && "invalid type");
 		}
 	}
 
-	void stringify_string(std::string& s, const std::string& value) {
+	static void stringify_string(std::string& s, const std::string& value) {
 		static const char* hex_digits = "0123456789ABCDEF";
 		s += '\"';
 		for (auto&& c : value) {
 			switch (c) {
-				case '\"':s += "\\\""; break;
-				case '\\':s += "\\\\"; break;
-				case '\b':s += "\\b"; break;
-				case '\f':s += "\\f"; break;
-				case '\n':s += "\\n"; break;
-				case '\r':s += "\\r"; break;
-				case '\t':s += "\\t"; break;
+				case '\"':
+					s += "\\\"";
+					break;
+				case '\\':
+					s += "\\\\";
+					break;
+				case '\b':
+					s += "\\b";
+					break;
+				case '\f':
+					s += "\\f";
+					break;
+				case '\n':
+					s += "\\n";
+					break;
+				case '\r':
+					s += "\\r";
+					break;
+				case '\t':
+					s += "\\t";
+					break;
 				default:
 					if (static_cast<unsigned char>(c) < 0x20) {
 						s += "\\u00";
@@ -538,7 +611,7 @@ private:
 
 	friend std::string_view get_string(const JsonValue& jv) {
 		assert(jv.type == ValueType::STRING_TYPE);
-		return std::string_view{ std::get<std::string>(jv.value).data(),std::get<std::string>(jv.value).size() };
+		return std::string_view{ std::get<std::string>(jv.value).data(), std::get<std::string>(jv.value).size() };
 	}
 
 	friend auto&& get_array(const JsonValue& jv) {
@@ -560,9 +633,7 @@ bool operator==(const LeptJSON& lhs, const LeptJSON& rhs) {
 	if (lhs.get_type() != rhs.get_type())return false;
 	switch (lhs.get_type()) {
 		case LeptJSON::ValueType::NULL_TYPE:
-			return true;
 		case LeptJSON::ValueType::FALSE_TYPE:
-			return true;
 		case LeptJSON::ValueType::TRUE_TYPE:
 			return true;
 		case LeptJSON::ValueType::NUMBER_TYPE:
@@ -573,9 +644,9 @@ bool operator==(const LeptJSON& lhs, const LeptJSON& rhs) {
 			return lhs.get_array() == rhs.get_array();
 		case LeptJSON::ValueType::OBJECT_TYPE:
 			return lhs.get_object() == rhs.get_object();
-		default:assert(0 && "invalid type");
+		default:
+			assert(0 && "invalid type");
 	}
-	return false;
 }
 
 bool is_equal(const LeptJSON& lhs, const LeptJSON& rhs) {
@@ -593,4 +664,5 @@ void move(LeptJSON& lhs, LeptJSON&& rhs) {
 void swap(LeptJSON& lhs, LeptJSON& rhs) {
 	lhs.swap(rhs);
 }
+
 #endif/* _LEPTJSON_H_ */
