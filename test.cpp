@@ -139,12 +139,12 @@ static void test_parse_array() {
 	LeptJSON v("[ ]");
 	EXPECT_EQ_INT(Status::PARSE_OK, v.parse());
 	EXPECT_EQ_INT(ValueType::ARRAY_TYPE, v.get_type());
-	EXPECT_EQ_SIZE_T(0ull, v.get_array().size());
+	EXPECT_EQ_SIZE_T(std::size_t{}, v.get_array().size());
 
 	v.set_json("[ null , false , true , 123 , \"abc\" ]");
 	EXPECT_EQ_INT(Status::PARSE_OK, v.parse());
 	EXPECT_EQ_INT(ValueType::ARRAY_TYPE, v.get_type());
-	EXPECT_EQ_SIZE_T(5ull, v.get_array().size());
+	EXPECT_EQ_SIZE_T(std::size_t{ 5 }, v.get_array().size());
 	EXPECT_EQ_INT(ValueType::NULL_TYPE, get_type(v.get_array()[0]));
 	EXPECT_EQ_INT(ValueType::FALSE_TYPE, get_type(v.get_array()[1]));
 	EXPECT_EQ_INT(ValueType::TRUE_TYPE, get_type(v.get_array()[2]));
@@ -156,7 +156,7 @@ static void test_parse_array() {
 	v.set_json("[ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ]");
 	EXPECT_EQ_INT(Status::PARSE_OK, v.parse());
 	EXPECT_EQ_INT(ValueType::ARRAY_TYPE, v.get_type());
-	for (size_t i = 0; i < 4; i++) {
+	for (std::size_t i = 0; i < 4; i++) {
 		auto a = v.get_array()[i];
 		EXPECT_EQ_INT(ValueType::ARRAY_TYPE, get_type(a));
 		EXPECT_EQ_SIZE_T(i, get_array(a).size());
@@ -171,7 +171,7 @@ static void test_parse_object() {
 	LeptJSON v("{ }");
 	EXPECT_EQ_INT(Status::PARSE_OK, v.parse());
 	EXPECT_EQ_INT(ValueType::OBJECT_TYPE, v.get_type());
-	EXPECT_EQ_SIZE_T(0ull, v.get_object().size());
+	EXPECT_EQ_SIZE_T(std::size_t{}, v.get_object().size());
 
 	v.set_json(
 		" { "
@@ -186,7 +186,7 @@ static void test_parse_object() {
 	);
 	EXPECT_EQ_INT(Status::PARSE_OK, v.parse());
 	EXPECT_EQ_INT(ValueType::OBJECT_TYPE, v.get_type());
-	EXPECT_EQ_SIZE_T(7ull, v.get_object().size());
+	EXPECT_EQ_SIZE_T(std::size_t{ 7 }, v.get_object().size());
 	EXPECT_EQ_INT(ValueType::NULL_TYPE, get_type((v.get_object().at("n"))));
 	EXPECT_EQ_INT(ValueType::FALSE_TYPE, get_type((v.get_object().at("f"))));
 	EXPECT_EQ_INT(ValueType::TRUE_TYPE, get_type((v.get_object().at("t"))));
@@ -195,16 +195,16 @@ static void test_parse_object() {
 	EXPECT_EQ_INT(ValueType::STRING_TYPE, get_type((v.get_object().at("s"))));
 	EXPECT_EQ_STRING("abc", get_string(v.get_object().at("s")));
 	EXPECT_EQ_INT(ValueType::ARRAY_TYPE, get_type(v.get_object().at("a")));
-	EXPECT_EQ_SIZE_T(3ull, get_array(v.get_object().at("a")).size());
-	for (size_t i = 0; i < 3; i++) {
+	EXPECT_EQ_SIZE_T(std::size_t{ 3 }, get_array(v.get_object().at("a")).size());
+	for (std::size_t i = 0; i < 3; i++) {
 		EXPECT_EQ_INT(ValueType::NUMBER_TYPE, get_type(get_array(v.get_object().at("a"))[i]));
 		EXPECT_EQ_DOUBLE(i + 1.0, get_number(get_array(v.get_object().at("a"))[i]));
 	}
 	{
 		auto o = v.get_object().at("o");
 		EXPECT_EQ_INT(ValueType::OBJECT_TYPE, get_type(o));
-		EXPECT_EQ_SIZE_T(3ull, get_object(o).size());
-		for (size_t i = 0; i < 3; i++) {
+		EXPECT_EQ_SIZE_T(std::size_t{ 3 }, get_object(o).size());
+		for (std::size_t i = 0; i < 3; i++) {
 			auto key = std::to_string(i + 1);
 			EXPECT_EQ_INT(ValueType::NUMBER_TYPE, get_type(get_object(o).at(key)));
 			EXPECT_EQ_DOUBLE(i + 1.0, get_number(get_object(o).at(key)));
@@ -376,11 +376,108 @@ static void test_access_string() {
 	EXPECT_EQ_STRING("Hello", v.get_string());
 }
 
+static void test_access_array() {
+	LeptJSON v, temp;
+	for (std::size_t i = 0; i <= 5; i += 5) {
+		v.set_array({});
+		v.get_array().reserve(i);
+		EXPECT_EQ_SIZE_T(std::size_t{ 0 }, v.get_array().size());
+		EXPECT_EQ_SIZE_T(i, v.get_array().capacity());
+		for (int j = 0; j < 10; j++) {
+			temp.set_number(j);
+			v.get_array().push_back(std::move(temp.get_value()));
+		}
+		EXPECT_EQ_SIZE_T(std::size_t{ 10 }, v.get_array().size());
+		for (int j = 0; j < 10; j++) {
+			EXPECT_EQ_DOUBLE(double(j), get_number(v.get_array()[j]));
+		}
+	}
+
+	v.get_array().pop_back();
+	EXPECT_EQ_SIZE_T(std::size_t{ 9 }, v.get_array().size());
+	for (int i = 0; i < 9; i++) {
+		EXPECT_EQ_DOUBLE(double(i), get_number(v.get_array()[i]));
+	}
+
+	v.get_array().erase(v.get_array().begin() + 4, v.get_array().begin() + 4);
+	EXPECT_EQ_SIZE_T(std::size_t{ 9 }, v.get_array().size());
+	for (int i = 0; i < 9; i++) {
+		EXPECT_EQ_DOUBLE(double(i), get_number(v.get_array()[i]));
+	}
+
+	v.get_array().erase(v.get_array().begin() + 8, v.get_array().begin() + 9);
+	EXPECT_EQ_SIZE_T(std::size_t{ 8 }, v.get_array().size());
+	for (int i = 0; i < 8; i++) {
+		EXPECT_EQ_DOUBLE(double(i), get_number(v.get_array()[i]));
+	}
+
+	v.get_array().erase(v.get_array().begin(), v.get_array().begin() + 2);
+	EXPECT_EQ_SIZE_T(std::size_t{ 6 }, v.get_array().size());
+	for (int i = 0; i < 6; i++) {
+		EXPECT_EQ_DOUBLE(i + 2.0, get_number(v.get_array()[i]));
+	}
+
+	for (int i = 0; i < 2; i++) {
+		temp.set_number(i);
+		v.get_array().insert(v.get_array().begin() + i, std::move(temp.get_value()));
+	}
+
+	EXPECT_EQ_SIZE_T(std::size_t{ 8 }, v.get_array().size());
+	for (int i = 0; i < 8; i++) {
+		EXPECT_EQ_DOUBLE(double(i), get_number(v.get_array()[i]));
+	}
+
+	EXPECT_TRUE(v.get_array().capacity() > 8);
+	v.get_array().shrink_to_fit();
+	EXPECT_EQ_SIZE_T(std::size_t{ 8 }, v.get_array().size());
+	EXPECT_EQ_SIZE_T(std::size_t{ 8 }, v.get_array().capacity());
+	for (int i = 0; i < 8; i++) {
+		EXPECT_EQ_DOUBLE(double(i), get_number(v.get_array()[i]));
+	}
+
+	temp.set_string("Hello");
+	v.get_array().push_back(std::move(temp.get_value()));
+
+	std::size_t old_capacity = v.get_array().capacity();
+	v.get_array().clear();
+	EXPECT_EQ_SIZE_T(0, v.get_array().size());
+	EXPECT_EQ_SIZE_T(old_capacity, v.get_array().capacity());
+	v.get_array().shrink_to_fit();
+	EXPECT_EQ_SIZE_T(0, v.get_array().capacity());
+}
+
+static void test_access_object() {
+	LeptJSON v, temp;
+	v.set_object({});
+	EXPECT_EQ_SIZE_T(std::size_t{}, v.get_object().size());
+	for (int i = 0; i < 10; i++) {
+		char key = 'a' + i;
+		temp.set_number(i);
+		v.get_object()[{ key }] = std::move(temp.get_value());
+		EXPECT_EQ_DOUBLE(i, get_number(v.get_object()[{key}]));
+	}
+	EXPECT_EQ_SIZE_T(10, v.get_object().size());
+	EXPECT_TRUE(v.get_object().contains("a"));
+	v.get_object().erase("a");
+	EXPECT_FALSE(v.get_object().contains("a"));
+	v.get_object().erase(v.get_object().begin(), v.get_object().end());
+	EXPECT_EQ_SIZE_T(std::size_t{}, v.get_object().size());
+	temp.set_string("23333");
+	v.get_object().insert({ "le",temp.get_value() });
+	EXPECT_EQ_SIZE_T(std::size_t{ 1 }, v.get_object().size());
+	EXPECT_TRUE(v.get_object().contains("le"));
+	EXPECT_EQ_STRING("23333", get_string(v.get_object()["le"]));
+	v.get_object().clear();
+	EXPECT_EQ_SIZE_T(std::size_t{}, v.get_object().size());
+}
+
 static void test_access() {
 	test_access_null();
 	test_access_boolean();
 	test_access_number();
 	test_access_string();
+	test_access_array();
+	test_access_object();
 }
 
 static void test_stringify_number() {
@@ -481,7 +578,9 @@ void test_move() {
 }
 
 void test_swap() {
-	LeptJSON v1("Hello"), v2("World");
+	LeptJSON v1, v2;
+	v1.set_string("Hello");
+	v2.set_string("World");
 	swap(v1, v2);
 	EXPECT_EQ_STRING("Hello", v2.get_string());
 	EXPECT_EQ_STRING("World", v1.get_string());
@@ -500,6 +599,7 @@ int main() {
 	test_equal();
 	test_copy();
 	test_move();
+	test_swap();
 	printf("%d/%d (%3.2f%%) passed\n", test_pass, test_count, test_pass * 100.0 / test_count);
 	return main_ret;
 }

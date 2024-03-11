@@ -93,6 +93,10 @@ public:
 		return jsonValue.type;
 	}
 
+	JsonValue get_value()const {
+		return jsonValue;
+	}
+
 	void set_json(const char* js) {
 		json = js;
 	}
@@ -128,14 +132,32 @@ public:
 		jsonValue = { std::string{str},ValueType::STRING_TYPE };
 	}
 
-	auto&& get_array()const {
+	const json_array_type& get_array()const {
 		assert(jsonValue.type == ValueType::ARRAY_TYPE);
 		return std::get<json_array_type>(jsonValue.value);
 	}
 
-	auto&& get_object()const {
+	json_array_type& get_array() {
+		assert(jsonValue.type == ValueType::ARRAY_TYPE);
+		return std::get<json_array_type>(jsonValue.value);
+	}
+
+	void set_array(const json_array_type& arr) {
+		jsonValue = { arr,ValueType::ARRAY_TYPE };
+	}
+
+	const json_object_type& get_object()const {
 		assert(jsonValue.type == ValueType::OBJECT_TYPE);
 		return std::get<json_object_type>(jsonValue.value);
+	}
+
+	json_object_type& get_object() {
+		assert(jsonValue.type == ValueType::OBJECT_TYPE);
+		return std::get<json_object_type>(jsonValue.value);
+	}
+
+	void set_object(const json_object_type&obj) {
+		jsonValue = { obj,ValueType::OBJECT_TYPE };
 	}
 
 	Status parse() {
