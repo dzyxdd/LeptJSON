@@ -1,15 +1,9 @@
-﻿/*
-* learn from miloyip's json-tutorial
-* url: https://github.com/miloyip/json-tutorial.git
-*/
-
-#pragma once
+﻿#pragma once
 #ifndef _LEPTJSON_H_
 #define _LEPTJSON_H_
 #include <cassert>
 #include <cctype>
 #include <variant>
-#include <stdexcept>
 #include <cmath>
 #include <memory>
 #include <vector>
