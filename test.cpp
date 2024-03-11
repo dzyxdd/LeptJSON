@@ -1,7 +1,5 @@
 ﻿#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
 
 #include "LeptJSON.hpp"
 #include <iostream>
@@ -46,11 +44,23 @@ void test_error(Status error, const char* json) {
 	EXPECT_EQ_INT(ValueType::NULL_TYPE, v.get_type());
 }
 
-void test_string(const char* expect_string, const char* json) {
+void test_string(std::string_view expect_string, const char* json) {
 	LeptJSON v(json);
 	EXPECT_EQ_INT(Status::PARSE_OK, v.parse());
 	EXPECT_EQ_INT(ValueType::STRING_TYPE, v.get_type());
 	EXPECT_EQ_STRING(expect_string, v.get_string());
+}
+
+void test_round_trip(const char* json) {
+	LeptJSON v1(json);
+	EXPECT_EQ_INT(Status::PARSE_OK, v1.parse());
+	std::string json2 = v1.stringify();
+	LeptJSON v2(json2.data());
+	EXPECT_EQ_INT(Status::PARSE_OK, v2.parse());
+	std::string json3 = v2.stringify();
+	LeptJSON v3(json3.data());
+	EXPECT_EQ_INT(Status::PARSE_OK, v3.parse());
+	EXPECT_EQ_STRING(json2, json3);
 }
 }
 
@@ -109,7 +119,7 @@ void test_parse_string() {
 	details::test_string("Hello", "\"Hello\"");
 	details::test_string("Hello\nWorld", "\"Hello\\nWorld\"");
 	details::test_string("\" \\ / \b \f \n \r \t", "\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\"");
-	details::test_string("Hello\0World", "\"Hello\\u0000World\"");
+	details::test_string(std::string_view{ "Hello\0World",11 }, "\"Hello\\u0000World\"");
 	details::test_string("\x24", "\"\\u0024\"");         /* Dollar sign U+0024 */
 	details::test_string("\xC2\xA2", "\"\\u00A2\"");     /* Cents sign U+00A2 */
 	details::test_string("\xE2\x82\xAC", "\"\\u20AC\""); /* Euro sign U+20AC */
@@ -365,12 +375,64 @@ static void test_access() {
 	test_access_string();
 }
 
+static void test_stringify_number() {
+	details::test_round_trip("0");
+	details::test_round_trip("-0");
+	details::test_round_trip("1");
+	details::test_round_trip("-1");
+	details::test_round_trip("1.5");
+	details::test_round_trip("-1.5");
+	details::test_round_trip("3.25");
+	details::test_round_trip("1e+20");
+	details::test_round_trip("1.234e+20");
+	details::test_round_trip("1.234e-20");
+
+	details::test_round_trip("1.0000000000000002"); /* the smallest number > 1 */
+	details::test_round_trip("4.9406564584124654e-324"); /* minimum denormal */
+	details::test_round_trip("-4.9406564584124654e-324");
+	details::test_round_trip("2.2250738585072009e-308");  /* Max subnormal double */
+	details::test_round_trip("-2.2250738585072009e-308");
+	details::test_round_trip("2.2250738585072014e-308");  /* Min normal positive double */
+	details::test_round_trip("-2.2250738585072014e-308");
+	details::test_round_trip("1.7976931348623157e+308");  /* Max double */
+	details::test_round_trip("-1.7976931348623157e+308");
+}
+
+static void test_stringify_string() {
+	details::test_round_trip("\"\"");
+	details::test_round_trip("\"Hello\"");
+	details::test_round_trip("\"Hello\\nWorld\"");
+	details::test_round_trip("\"\\\" \\\\ / \\b \\f \\n \\r \\t\"");
+	details::test_round_trip("\"Hello\\u0000World\"");
+}
+
+static void test_stringify_array() {
+	details::test_round_trip("[]");
+	details::test_round_trip("[null,false,true,123,\"abc\",[1,2,3]]");
+}
+
+static void test_stringify_object() {
+	details::test_round_trip("{}");
+	details::test_round_trip("{\"n\":null,\"f\":false,\"t\":true,\"i\":123,\"s\":\"abc\",\"a\":[1,2,3],\"o\":{\"1\":1,\"2\":2,\"3\":3}}");
+}
+
+static void test_stringify() {
+	details::test_round_trip("null");
+	details::test_round_trip("false");
+	details::test_round_trip("true");
+	test_stringify_number();
+	test_stringify_string();
+	test_stringify_array();
+	test_stringify_object();
+}
+
 int main() {
 #ifdef _WINDOWS
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 	test_parse();
 	test_access();
+	test_stringify();
 	printf("%d/%d (%3.2f%%) passed\n", test_pass, test_count, test_pass * 100.0 / test_count);
 	return main_ret;
 }

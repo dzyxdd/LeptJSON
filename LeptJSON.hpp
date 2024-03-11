@@ -9,13 +9,14 @@
 #include <cassert>
 #include <cctype>
 #include <variant>
-#include <string_view>
 #include <stdexcept>
 #include <cmath>
 #include <memory>
-#include <stack>
 #include <vector>
 #include <map>
+#include <string>
+#include <charconv>
+#include <array>
 
 struct LeptJSON {
 
@@ -53,7 +54,7 @@ private:
 	std::string_view json;
 
 public:
-	explicit LeptJSON(const char* js = "", ValueType vt = ValueType::NULL_TYPE)
+	explicit LeptJSON(std::string_view js = "", ValueType vt = ValueType::NULL_TYPE)
 		:jsonValue({}, vt), json(js) {}
 
 	ValueType get_type()const {
@@ -117,6 +118,12 @@ public:
 			}
 		}
 		return ret;
+	}
+
+	std::string stringify() {
+		std::string s;
+		stringify_value(s, jsonValue);
+		return std::move(s);
 	}
 
 private:
@@ -217,7 +224,8 @@ private:
 		for (; json.size(); json.remove_prefix(1)) {
 			switch (json.front()) {
 				case '\"':
-					jsonValue = { std::string{s.data()},ValueType::STRING_TYPE };//! why
+				//	jsonValue = { std::string{s.data()},ValueType::STRING_TYPE };
+					jsonValue = { std::move(s),ValueType::STRING_TYPE };//! why
 					json.remove_prefix(1);
 					return Status::PARSE_OK;
 				case '\\':
@@ -390,8 +398,74 @@ private:
 				return Status::PARSE_MISS_COMMA_OR_CURLY_BRACKET;
 			}
 		}
-		jsonValue.type = ValueType::NULL_TYPE;
-		return Status::PARSE_MISS_COMMA_OR_CURLY_BRACKET;
+	}
+
+	void stringify_value(std::string& s, const JsonValue& jv) {
+		bool judge;
+		switch (jv.type) {
+			case ValueType::NULL_TYPE:s += "null"; break;
+			case ValueType::FALSE_TYPE:s += "false"; break;
+			case ValueType::TRUE_TYPE:s += "true"; break;
+			case ValueType::NUMBER_TYPE:
+				std::array<char, 50> buffer;
+				auto [p, ec] = std::to_chars(buffer.data(), buffer.data() + buffer.size(), std::get<double>(jv.value), std::chars_format::general, 17);
+				if (ec == std::errc()) {
+					s.append(buffer.data(), p);
+				}
+				break;
+			case ValueType::STRING_TYPE:
+				stringify_string(s, std::get<std::string>(jv.value));
+				break;
+			case ValueType::ARRAY_TYPE:
+				s += '[';
+				judge = false;
+				for (auto&& value : std::get<json_array_type>(jv.value)) {
+					if (judge)s += ',';
+					else judge = true;
+					stringify_value(s, value);
+				}
+				s += ']';
+				break;
+			case ValueType::OBJECT_TYPE:
+				s += '{';
+				judge = false;
+				for (auto&& [key, value] : std::get<json_object_type>(jv.value)) {
+					if (judge)s += ',';
+					else judge = true;
+					stringify_string(s, key);
+					s += ':';
+					stringify_value(s, value);
+				}
+				s += '}';
+				break;
+			default:assert(0 && "invalid type");
+		}
+	}
+
+	void stringify_string(std::string& s, const std::string& value) {
+		static const char* hex_digits = "0123456789ABCDEF";
+		s += '\"';
+		for (auto&& c : value) {
+			switch (c) {
+				case '\"':s += "\\\""; break;
+				case '\\':s += "\\\\"; break;
+				case '\b':s += "\\b"; break;
+				case '\f':s += "\\f"; break;
+				case '\n':s += "\\n"; break;
+				case '\r':s += "\\r"; break;
+				case '\t':s += "\\t"; break;
+				default:
+					if (static_cast<unsigned char>(c) < 0x20) {
+						s += "\\u00";
+						s += hex_digits[static_cast<unsigned char>(c) >> 4];
+						s += hex_digits[static_cast<unsigned char>(c) & 0x0F];
+					}
+					else {
+						s += c;
+					}
+			}
+		}
+		s += '\"';
 	}
 
 	friend ValueType get_type(const JsonValue& jv) { return jv.type; }
