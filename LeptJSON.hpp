@@ -15,19 +15,21 @@
 #include <memory>
 #include <stack>
 #include <vector>
+#include <map>
 
 struct LeptJSON {
 
 	enum class ValueType { NULL_TYPE, FALSE_TYPE, TRUE_TYPE, NUMBER_TYPE, STRING_TYPE, ARRAY_TYPE, OBJECT_TYPE };
 
 	enum class Status {
-		PARSE_OK, PARSE_EXPECT_VALUE, PARSE_INVALID_VALUE, PARSE_ROOT_NOT_SINGULAR, PARSE_NUMBER_TOO_BIG, PARSE_MISS_QUOTATION_MARK, PARSE_INVALID_STRING_ESCAPE, PARSE_INVALID_STRING_CHAR, PARSE_INVALID_UNICODE_HEX, PARSE_INVALID_UNICODE_SURROGATE, PARSE_MISS_COMMA_OR_SQUARE_BRACKET
+		PARSE_OK, PARSE_EXPECT_VALUE, PARSE_INVALID_VALUE, PARSE_ROOT_NOT_SINGULAR, PARSE_NUMBER_TOO_BIG, PARSE_MISS_QUOTATION_MARK, PARSE_INVALID_STRING_ESCAPE, PARSE_INVALID_STRING_CHAR, PARSE_INVALID_UNICODE_HEX, PARSE_INVALID_UNICODE_SURROGATE, PARSE_MISS_COMMA_OR_SQUARE_BRACKET, PARSE_MISS_KEY, PARSE_MISS_COLON, PARSE_MISS_COMMA_OR_CURLY_BRACKET
 	};
 
 private:
 	struct JsonValue;
 	using json_array_type = std::vector<JsonValue>;
-	using jsonValueType = std::variant<std::nullptr_t, double, std::string, bool, json_array_type>;
+	using json_object_type = std::map<std::string, JsonValue>;
+	using jsonValueType = std::variant<std::nullptr_t, double, std::string, bool, json_array_type, json_object_type>;
 	struct JsonValue {
 		jsonValueType value;
 		ValueType type;
@@ -98,6 +100,11 @@ public:
 		return std::get<json_array_type>(jsonValue.value);
 	}
 
+	auto&& get_object()const {
+		assert(jsonValue.type == ValueType::OBJECT_TYPE);
+		return std::get<json_object_type>(jsonValue.value);
+	}
+
 	Status parse() {
 		jsonValue.type = ValueType::NULL_TYPE;
 		parse_whitespace();
@@ -123,6 +130,7 @@ private:
 			case '\0':return Status::PARSE_EXPECT_VALUE;
 			case '"':return parse_string();
 			case '[':return parse_array();
+			case '{':return parse_object();
 			default:return parse_number();
 		}
 	}
@@ -309,7 +317,7 @@ private:
 			return Status::PARSE_OK;
 		}
 		json_array_type v = json_array_type{};
-		for (; json.size();) {
+		while (json.size()) {
 			auto ret = parse_value();
 			if (ret != Status::PARSE_OK) {
 				return ret;
@@ -334,6 +342,58 @@ private:
 		return Status::PARSE_MISS_COMMA_OR_SQUARE_BRACKET;
 	}
 
+	Status parse_object() {
+		if (json.starts_with('{')) {
+			json.remove_prefix(1);
+		}
+		parse_whitespace();
+		if (json.starts_with('}')) {
+			json.remove_prefix(1);
+			jsonValue = { json_object_type{},ValueType::OBJECT_TYPE };
+			return Status::PARSE_OK;
+		}
+		json_object_type v = json_object_type{};
+		while (true) {
+			if (!json.starts_with('\"')) {
+				jsonValue.type = ValueType::NULL_TYPE;
+				return Status::PARSE_MISS_KEY;
+			}
+			auto ret = parse_string();
+			if (ret != Status::PARSE_OK) {
+				return ret;
+			}
+			std::string key = std::get<std::string>(jsonValue.value);
+			parse_whitespace();
+			if (!json.starts_with(':')) {
+				jsonValue.type = ValueType::NULL_TYPE;
+				return Status::PARSE_MISS_COLON;
+			}
+			json.remove_prefix(1);
+			parse_whitespace();
+			ret = parse_value();
+			if (ret != Status::PARSE_OK) {
+				return ret;
+			}
+			v[key] = jsonValue;
+			parse_whitespace();
+			if (json.starts_with(',')) {
+				json.remove_prefix(1);
+				parse_whitespace();
+			}
+			else if (json.starts_with('}')) {
+				json.remove_prefix(1);
+				jsonValue = { std::move(v),ValueType::OBJECT_TYPE };
+				return Status::PARSE_OK;
+			}
+			else {
+				jsonValue.type = ValueType::NULL_TYPE;
+				return Status::PARSE_MISS_COMMA_OR_CURLY_BRACKET;
+			}
+		}
+		jsonValue.type = ValueType::NULL_TYPE;
+		return Status::PARSE_MISS_COMMA_OR_CURLY_BRACKET;
+	}
+
 	friend ValueType get_type(const JsonValue& jv) { return jv.type; }
 
 	friend bool get_boolean(const JsonValue& jv) {
@@ -354,6 +414,11 @@ private:
 	friend auto&& get_array(const JsonValue& jv) {
 		assert(jv.type == ValueType::ARRAY_TYPE);
 		return std::get<json_array_type>(jv.value);
+	}
+
+	friend auto&& get_object(const JsonValue& jv) {
+		assert(jv.type == ValueType::OBJECT_TYPE);
+		return std::get<json_object_type>(jv.value);
 	}
 };
 
