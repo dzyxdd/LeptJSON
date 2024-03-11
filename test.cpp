@@ -29,6 +29,7 @@ using ValueType = LeptJSON::ValueType;
 #define EXPECT_EQ_STRING(expect, actual) EXPECT_EQ_BASE(expect == actual, expect, actual.data(), "%s")
 #define EXPECT_TRUE(actual) EXPECT_EQ_BASE((actual) != 0, "true", "false", "%s")
 #define EXPECT_FALSE(actual) EXPECT_EQ_BASE((actual) == 0, "false", "true", "%s")
+#define EXPECT_EQ_SIZE_T(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%zu")
 
 namespace details {
 void test_number(double expect_number, const char* json) {
@@ -115,6 +116,38 @@ void test_parse_string() {
 	details::test_string("\xF0\x9D\x84\x9E", "\"\\ud834\\udd1e\"");  /* G clef sign U+1D11E */
 }
 
+static void test_parse_array() {
+	LeptJSON v("[ ]");
+	EXPECT_EQ_INT(Status::PARSE_OK, v.parse());
+	EXPECT_EQ_INT(ValueType::ARRAY_TYPE, v.get_type());
+	EXPECT_EQ_SIZE_T(0, v.get_array().size());
+
+	v.set_json("[ null , false , true , 123 , \"abc\" ]");
+	EXPECT_EQ_INT(Status::PARSE_OK, v.parse());
+	EXPECT_EQ_INT(ValueType::ARRAY_TYPE, v.get_type());
+	EXPECT_EQ_SIZE_T(5, v.get_array().size());
+	EXPECT_EQ_INT(ValueType::NULL_TYPE, get_type(v.get_array()[0]));
+	EXPECT_EQ_INT(ValueType::FALSE_TYPE, get_type(v.get_array()[1]));
+	EXPECT_EQ_INT(ValueType::TRUE_TYPE, get_type(v.get_array()[2]));
+	EXPECT_EQ_INT(ValueType::NUMBER_TYPE, get_type(v.get_array()[3]));
+	EXPECT_EQ_INT(ValueType::STRING_TYPE, get_type(v.get_array()[4]));
+	EXPECT_EQ_DOUBLE(123.0, get_number((v.get_array()[3])));
+	EXPECT_EQ_STRING("abc", get_string(v.get_array()[4]));
+
+	v.set_json("[ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ]");
+	EXPECT_EQ_INT(Status::PARSE_OK, v.parse());
+	EXPECT_EQ_INT(ValueType::ARRAY_TYPE, v.get_type());
+	for (int i = 0; i < 4; i++) {
+		auto a = v.get_array()[i];
+		EXPECT_EQ_INT(ValueType::ARRAY_TYPE, get_type(a));
+		EXPECT_EQ_SIZE_T(i, get_array(a).size());
+		for (int j = 0; j < i; j++) {
+			EXPECT_EQ_INT(ValueType::NUMBER_TYPE, get_type(get_array(a)[j]));
+			EXPECT_EQ_DOUBLE((double) j, get_number(get_array(a)[j]));
+		}
+	}
+}
+
 static void test_parse_expect_value() {
 	details::test_error(Status::PARSE_EXPECT_VALUE, "");
 	details::test_error(Status::PARSE_EXPECT_VALUE, " ");
@@ -133,6 +166,9 @@ static void test_parse_invalid_value() {
 	details::test_error(Status::PARSE_INVALID_VALUE, "inf");
 	details::test_error(Status::PARSE_INVALID_VALUE, "NAN");
 	details::test_error(Status::PARSE_INVALID_VALUE, "nan");
+
+	details::test_error(Status::PARSE_INVALID_VALUE, "[1,]");
+	details::test_error(Status::PARSE_INVALID_VALUE, "[\"a\", nul]");
 }
 
 static void test_parse_root_not_singular() {
@@ -190,12 +226,20 @@ static void test_parse_invalid_unicode_surrogate() {
 	details::test_error(Status::PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\uE000\"");
 }
 
+static void test_parse_miss_comma_or_square_bracket() {
+	details::test_error(Status::PARSE_MISS_COMMA_OR_SQUARE_BRACKET, "[1");
+	details::test_error(Status::PARSE_MISS_COMMA_OR_SQUARE_BRACKET, "[1}");
+	details::test_error(Status::PARSE_MISS_COMMA_OR_SQUARE_BRACKET, "[1 2");
+	details::test_error(Status::PARSE_MISS_COMMA_OR_SQUARE_BRACKET, "[[]");
+}
+
 static void test_parse() {
 	test_parse_null();
 	test_parse_true();
 	test_parse_false();
 	test_parse_number();
 	test_parse_string();
+	test_parse_array();
 	test_parse_expect_value();
 	test_parse_invalid_value();
 	test_parse_root_not_singular();
